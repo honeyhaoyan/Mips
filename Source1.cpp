@@ -10,7 +10,7 @@ using namespace std;
 ifstream src;
 ifstream input;
 ofstream of("mytext.txt");
-ofstream fout("out.txt");
+//ofstream fout("out.txt");
 istream &is = cin;
 int current = 0;
 const int maxn = 100;
