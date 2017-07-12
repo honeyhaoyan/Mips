@@ -10,45 +10,22 @@ using namespace std;
 ifstream src;
 ifstream input;
 ofstream of("mytext.txt");
-//ofstream fout("out.txt");
 istream &is = cin;
 int current = 0;
 const int maxn = 100;
 int stacktop = 0;
 int status = 1;
 
-//const int maxn1 = 100;  //to be decieded
-//const int maxn2 = 30;   //to be decieded
-//char string[maxn1][maxn2];
 char stack[4 * 1024 * 1024];
 map<string, int>regismap;
-//to deal with hazards
-//The hazards that could occur:
-//NOTOCE: In practice, you should start with step 5 
-//STEP 1
-//No 1 : deal with the storage, check if storage is true, if it is false,then you can not go on with this step
-//STEP 2
-//No 2 : get the registers, check the A1,A2,A3 in changeRegis[32], it is flase,then you can not let it in
-//No 3 : check if the instruction is jump or syscall, branch, you shouldn't let anything in
-//STEP 3
-//No 4 : change the registers, at this time, you should turn changeRegis[x] to false.
-//STEP 4
-//No 5: if you deal with stotage at this step, change storage to false
-//STEP 5
-//No 6: change changeRegis[x] to true,storage,
-
-//The function of changeRegis is to see if the value of registers should be changed but has not been changed yet
 bool changeRegis[32];
 bool storage = true;
 int regis[32];
-//int value[4 * 1024 * 1024];
-//int numOfValue = 32;
 int lo = 0, hi = 0;
 void origin() {
 	for (int e = 0;e < 32;++e) {
 		regis[e] = 0;
 		changeRegis[e] = true;
-		//value[e] = 0;
 	}
 	memset(stack, 0, sizeof(stack));
 	regis[29] = 4 * 1024 * 1024;
@@ -89,13 +66,12 @@ void origin() {
 struct instruct {
 	int type;
 	int num;
-	//int(*f) (int a, int b);
 	int Rdest;
 	int Rsrc, Src2;
 	string label;
 	bool judge;
 	instruct(int t = 0, int n = 0, int  x = 0, int y = 0, int z = 0, string p = "\0", bool j = false) :type(t), num(n), Rdest(x), Rsrc(y), Src2(z), label(p), judge(j) {
-	}  //???????
+	}
 };
 vector<instruct> text;
 map<string, int> stackmap;
@@ -207,7 +183,7 @@ int compare(int num, int b, int c) {
 	if (flag == true) return 1;
 	else return 0;
 }
-
+int currentdeal;
 int jump(int num, int Rsrc, int Src2) {
 	switch (num) {
 	case 1: {
@@ -272,11 +248,11 @@ int jump(int num, int Rsrc, int Src2) {
 	}
 	case 16: {
 		//16 jal label $31 = ????????, goto label
-		return (current + 1);
+		return (currentdeal + 1);
 	}
 	case 17: {
 		//17 jalr Rsrc $31 = ????????, goto ???? in Rsrc
-		return (current + 1);
+		return (currentdeal + 1);
 	}
 	}
 }
@@ -296,17 +272,6 @@ int store(int Rsrc, int Imm) {   //Seems that there is nothing left to do
 	return (Rsrc + Imm);
 }
 
-//1 move Rdest, Rsrc Rdest = Rsrc
-//2 mfhi Rdest Rdest = hi
-//3 mflo Rdest Rdest = lo
-//void move(int a, int b) {
-//}
-
-//1 nop ????, ???????
-//2 syscall ??????????????????
-//void special() {}
-
-
 char str[maxn];
 int i = 0;
 int readInt() {  // start with '-' or number, end with the word after the number
@@ -323,10 +288,8 @@ int readInt() {  // start with '-' or number, end with the word after the number
 	else return (answer*(-1));
 }
 int readRegis(bool & x) {   //start with '$', end with the word after the register
-							///cout << "\n                                    read reg: " << str << endl;
 	int answer;
 	char registmp[2];
-	//string match;
 	while (str[i] != '$' && str[i] != '-' && (str[i]<'0' || str[i]>'9')) {
 		i++;
 	}
@@ -345,7 +308,6 @@ int readRegis(bool & x) {   //start with '$', end with the word after the regist
 			}
 		}
 		x = false;
-		//cout << "\n                         " << answer << "!!!\n";
 		return answer;
 	}
 	else {
@@ -354,10 +316,7 @@ int readRegis(bool & x) {   //start with '$', end with the word after the regist
 	}
 }
 bool islabel() {
-	//int t = strlen(str);
-	//if (str[t - 1] != ':') return false;
 	int flag = 1;
-
 	while (str[i] != '\0'&&str[i] != '\n') {
 		if (str[i] == '"') {
 			if (flag == 1) flag = 0;
@@ -367,9 +326,7 @@ bool islabel() {
 			char strtmp[maxn];
 			int h = 0, i = 0;
 			while (str[i] == ' ' || str[i] == '\t') i++;
-			//strncpy_s(strtmp, str, t - 1);
 			if (flag == 1) while (str[i] != ':'&&str[i] != '\n'&&str[i] != '\0') strtmp[h++] = str[i++];
-			//if (flag == 2) while (str[i] != '\n'&&str[i] != '\0') strtmp[h++] = str[i++];
 			string a(strtmp, h);
 			if (status == 1) {
 				stackmap.insert(pair<string, int>(a, stacktop));
@@ -401,25 +358,17 @@ string getlabel(int x) {  //x=1,instruct label; x=0,stack label;
 	return a;
 }
 int tmp[3];
-//instruct * v;
 bool publicUse;
 void getAddress(int x, int y, int numregis) {   //address is stored in label
-												//cout << endl << str << "      ";
 	tmp[numregis - 1] = readRegis(publicUse);   //If address is an int, then it is stored in Src2
-												//cout << " the first register " << tmp[numregis - 1] << endl;
 	string addString;
 	int addInt;
 	bool isInt = false;
 	int a, b;
 	while (str[i] == 32 || str[i] == ',') { i++; }
-	//cout << "**********************************   " << str[i] << " " << int(str[i]) << endl;
 	if ((str[i] >= '0'&&str[i] <= '9') || (str[i] == '-')) {
-		//int a, b;
-		//cout << "====================== readInt()    " << str + i << endl;
 		a = readInt();
-		//cout << "====================== readReg()    " << str + i << endl;
 		b = readRegis(publicUse);  //the register is stored in Src2
-								   //addInt = regis[b] + a; //if the register being used is Rdest,then offset is stored in Rsrc
 		isInt = true;          //if the register being used is Rsrc,then offset is stored in Rdest
 	}
 	else {
@@ -437,7 +386,6 @@ void getAddress(int x, int y, int numregis) {   //address is stored in label
 		instruct v;
 		if (isInt == false) v = instruct(x, y, -1, tmp[1], -1, addString, false);
 		else v = instruct(x, y, a, tmp[1], b, "\0", true);
-		//cout << b << endl;
 		text.push_back(v);
 		current++;
 	}
@@ -538,117 +486,123 @@ void NOP(int x, int y) {
 	text.push_back(v);
 	current++;
 }
-void lookat(int x, int y)
-{
-	//switch (x) {
-	//case 1: {
-	//	switch (y) {
-	//	case 1: cout << "add" << endl;break;
-	//	case 2:cout << "addu" << endl;break;
-	//	case 3:cout << "addiu" << endl;break;
-	//	case 4:cout << "sub" << endl;break;
-	//	case 5:cout << "subu" << endl;break;
-	//	case 6:cout << "mul 3" << endl;break;
-	//	case 7:cout << "mulu 3" << endl;break;
-	//	case 8:cout << "mul 2" << endl;break;
-	//	case 9:cout << "mulu 2" << endl;break;
-	//	case 10:cout << "div" << endl;break;
-	//	case 11:cout << "divu" << endl;break;
-	//	case 12:cout << "div" << endl;break;
-	//	case 13:cout << "divu" << endl;break;
-	//	case 14:cout << "xor" << endl;break;
-	//	case 15:cout << "xoru" << endl;break;
-	//	case 16:cout << "neg" << endl;break;
-	//	case 17:cout << "negu" << endl;break;
-	//	case 18:cout << "rem" << endl;break;
-	//	case 19:cout << "remu" << endl;break;
-	//	}
-	//	break;
-	//}
-	//case 2:cout << "li" << endl;break;
-	//case 3: {
-	//	switch (y) {
-	//	case 1: cout << "seq" << endl;break;
-	//	case 2:cout << "sge" << endl;break;
-	//	case 3:cout << "sgt" << endl;break;
-	//	case 4:cout << "sle" << endl;break;
-	//	case 5:cout << "slt" << endl;break;
-	//	case 6:cout << "sne" << endl;break;
-	//	}
-	//	break;
-	//}
-	//case 4: {
-	//	switch (y) {
-	//	case 1: cout << "b" << endl;break;
-	//	case 2:cout << "beq" << endl;break;
-	//	case 3:cout << "bne" << endl;break;
-	//	case 4:cout << "bge" << endl;break;
-	//	case 5:cout << "ble" << endl;break;
-	//	case 6:cout << "bgt" << endl;break;
-	//	case 7:cout << "blt" << endl;break;
-	//	case 8:cout << "beqz" << endl;break;
-	//	case 9:cout << "bnez" << endl;break;
-	//	case 10:cout << "blez" << endl;break;
-	//	case 11:cout << "bgez" << endl;break;
-	//	case 12:cout << "bgtz" << endl;break;
-	//	case 13:cout << "bltz" << endl;break;
-	//	case 14:cout << "j" << endl;break;
-	//	case 15:cout << "jr" << endl;break;
-	//	case 16:cout << "jal" << endl;break;
-	//	case 17:cout << "jalr" << endl;break;
-	//	}
-	//	break;
-	//}
-	//case 5: {
-	//	switch (y) {
-	//	case 1: cout << "la" << endl;break;
-	//	case 2:cout << "lb" << endl;break;
-	//	case 3:cout << "lh" << endl;break;
-	//	case 4:cout << "lw" << endl;break;
-	//	}
-	//	break;
-	//}
-	//case 6: {
-	//	switch (y) {
-	//	case 1: cout << "sb" << endl;break;
-	//	case 2:cout << "sh" << endl;break;
-	//	case 3:cout << "sw" << endl;break;
-	//	}
-	//	break;
-	//}
-	//case 7: {
-	//	switch (y) {
-	//	case 1: cout << "move" << endl;break;
-	//	case 2:cout << "mfhi" << endl;break;
-	//	case 3:cout << "mflo" << endl;break;
-	//	}
-	//	break;
-	//}
-	//case 8: {
-	//	switch (y) {
-	//	case 1: cout << "nop" << endl;break;
-	//	case 2:cout << "syscall" << endl;break;
-	//	}
-	//	break;
-	//}
-	//}
+
+int Clock = 0;
+
+//used in Step 1
+bool canFetch = true;
+
+//deliver to Step 2
+instruct tmpinstruct;
+bool canDecode = false;
+
+//deliver to Step 3
+int f1 = -1, f2, f3, x1, x2 = -1, x3 = -1, RdestLoca = -1, Rsrc, Src2;
+string x4;
+bool caculate = false;
+
+//deliver to Step 4
+//in
+int x4ad = -1, x2Stack = -1, f1Step4 = -1, f2Step4 = -1, v0Value;
+//out
+int ans1 = -1, former1 = -1, latter1 = -1, x3Step4 = -1, flag = -1, jumpto = -1, RdestLocaStep4 = -1, pos31 = -1;
+unsigned int ans2 = -1, former2 = -1, latter2 = -1;
+bool whether = 0;
+bool beginStep4 = false;
+
+//deliver to Step 5
+int ans1Write, former1Write, latter1Write, x3Write, flagWrite, transchar, jumptoStep5, RdestLocaStep5, x2Write, pos31Step5, v0ValueStep5;
+int f1Step5 = -1, f2Step5 = -1;
+unsigned int ans2Write, former2Write, latter2Write;
+bool whetherWrite = 0;
+bool beginStep5 = false;
+
+//currentdeal--;
+bool canChange[34];
+int size = text.size();
+//for (int l = 0;l < 34;++l) canChange[l] = true;
+bool ifcurrent = true;
+int jumptimedata = -1, jumptimestruc = -1;
+int counter[2];
+//counter[0] = 1;counter[1] = 1;
+int foresee[4];
+bool prediction = false;
+//   foresee[r]=0 || foresee[r]=1  ----------jump
+//   else do not jump
+//for (int r = 0;r < 4;++r) foresee[r] = 0;
+bool passHazard(instruct x);
+void state1(instruct x);
+void state2(instruct x);
+void simulate(int x) {
+	instruct tmp1, tmp2;
+	tmp1 = text[x];
+	tmp2 = text[x + 1];
+	if (passHazard(tmp1) && (passHazard(tmp2))) {
+		state2(tmp1);state1(tmp2);currentdeal = x + 2;
+		caculate = true;canDecode = true;
+	}
+	else {
+		if (passHazard(tmp1) && (!passHazard(tmp2))) {
+			state2(tmp1); currentdeal = x + 1;
+			caculate = true;
+		}
+		else currentdeal = x;
+	}
+}
+bool passHazard(instruct x) {
+	int q1 = x.Rdest, q2 = x.Rsrc, q3 = x.Src2;
+	switch (x.type) {
+	case 4:case 8:return false;
+	case 1:case 2:case 3:case 5:case 6:case 7: {
+		if (q1 >= 0 && q1 < 32) {
+			if (canChange[q1] == false) {
+				return false;
+			}
+		}
+		if (q2 >= 0 && q2 < 32) {
+			if (canChange[q2] == false) {
+				return false;
+			}
+		}
+		if (q3 >= 0 && q3 < 32) {
+			if (canChange[q3] == false) {
+				return false;
+			}
+		}
+		if (canChange[32] == false || canChange[33] == false)  return false;
+	}
+	}
+}
+void state1(instruct x) {
+	tmpinstruct = x;
+}
+void state2(instruct x) {
+	f1 = x.type;
+	f2 = x.num;
+	f3 = x.judge;
+	if (x.Rdest >= 0 && x.Rdest < 32) x1 = regis[tmpinstruct.Rdest];
+	x4 = x.label;
+	RdestLoca = x.Rdest;
+	Rsrc = x.Rsrc;
+	Src2 = x.Src2;
+	if ((f1 == 1 && f2 == 8) || (f1 == 1 && f2 == 9)) {
+		if (f3 == true) x2 = x.Rsrc;
+		x3 = -1;
+	}
+	else {
+		if (x.Rsrc >= 0 && x.Rsrc < 32) x2 = regis[x.Rsrc];
+		if (f3 == true) x3 = x.Src2;
+		else { if (x.Src2 >= 0 && x.Src2 < 32) x3 = regis[x.Src2]; }
+	}
 }
 int main(int argc, char *argv[]) {
 	//int main() {
 	src.open(argv[1]);
 	origin();
 	char ch1, ch2, ch3, ch4;
-
-	//int point;
-	//char labelchar[maxn];
-	//int numans;
-
 	//src.open("bulgarian-5110379024-wuhang.s");
 	//input.open("bulgarian-5110379024-wuhang.in");
-
 	while (src.getline(str, 100, '\n')) {
-		/*if (text.size() == 270)
-		cout << "!";*/
 		i = 0;
 		if (islabel() == true)  continue;
 		i = 0;
@@ -659,14 +613,6 @@ int main(int argc, char *argv[]) {
 
 			//begin with '.'
 		case '.': {
-			//of << "stacktop  " << stacktop << endl;
-			//cout << "stacktop  " << stacktop << endl;
-			for (int d = 0;d < stacktop;++d) {
-				//of << stack[d] << "  ";
-				//cout << stack[d] << "  ";
-			}
-			//of << endl;
-			//cout << endl;
 			ch2 = str[i + 1];
 			switch (ch2) {
 			case 'a': {
@@ -693,7 +639,6 @@ int main(int argc, char *argv[]) {
 								case '\'': { stack[stacktop++] = '\'';i += 2;break;}
 								case '\"': { stack[stacktop++] = '\"';i += 2;break;}
 								case '\?': { stack[stacktop++] = '\?';i += 2;break;}
-										   //default:cout << "BE CAREFUL !!!!!!!!!!!!!";
 								}
 							}
 							else stack[stacktop++] = str[i++];
@@ -723,7 +668,6 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 			case 'b': {  //.byte b1, ..., bn ? n ? byte ?????????
-						 //char read;
 				i += 5;
 				while (str[i] != '\n') {
 					while (str[i] == ' ' || str[i] == '\t' || str[i] == ',') i++;
@@ -752,7 +696,6 @@ int main(int argc, char *argv[]) {
 					while (str[i] == ' ' || str[i] == '\t') {
 						i++;
 					}
-					//for (int q = 1;q <= 4;++q) stack[stacktop++] = str[i++];
 					int readword = readInt();
 					stack[stacktop++] = readword;
 					stack[stacktop++] = readword >> 8;
@@ -774,77 +717,12 @@ int main(int argc, char *argv[]) {
 			}
 			break;
 		}
-				  //??????? 1; ?????? 2; ???? 3; ??????? 4; Load ?? 5; Store ?? 6; ?????? 7;???? 8 
-				  //register A, number B,label C,address D;
-				  //1           //1  1 add Rdest, Rsrc1, Src2 Rdest = Rsrc1 + Src2
-				  //1  2 addu Rdest, Rsrc1, Src2(???)Rdest = Rsrc1 + Src2
-				  //1  3 addiu Rdest, Rsrc1, Imm(???)Rdest = Rsrc1 + Imm
-				  //1  4 sub Rdest, Rsrc1, Src2 Rdest = Rsrc1 - Src2
-				  //1  5 subu Rdest, Rsrc1, Src2(???)Rdest = Rsrc1 - Src2
-				  //1  6 mul Rdest, Rsrc1, Src2 Rdest = Rsrc1 * Src2
-				  //1  7 mulu Rdest, Rsrc1, Src2(???)Rdest = Rsrc1 * Src2
-				  //1  8 mul Rdest, Src2 ??, ? 32 ??? lo, ? 32 ??? hi
-				  //1  9 mulu Rdest, Src2(???) ??, ? 32 ??? lo, ? 32 ??? hi
-				  //1  10 div Rdest, Rsrc1, Src2 Rdest = Rsrc1 / Src2
-				  //1  11 divu Rdest, Rsrc1, Src2(???)Rdest = Rsrc1 / Src2
-				  //1  12 div Rsrc1, Rsrc2 lo = Rsrc1 / Src2, hi = Rsrc1 % Src2
-				  //1  13 divu Rsrc1, Rsrc2(???)lo = Rsrc1 / Src2, hi = Rsrc1 % Src2
-				  //1  14 xor Rdest, Rsrc1, Src2 Rdest = Rsrc1 Src2
-				  //1  15 xoru Rdest, Rsrc1, Src2(???)Rdest = Rsrc1 Src2
-				  //1  16 neg Rdest, Rsrc Rdest = Rsrc ??
-				  //1  17 negu Rdest, Rsrc(???)Rdest = Rsrc ??
-				  //1  18 rem Rdest, Rsrc1, Src2 Rdest = Rsrc1 % Src2
-				  //1  19 remu Rdest, Rsrc1, Src2(???)Rdest = Rsrc1 % Src2
-				  //2		       //2  1 li Rdest, imm Rdest = imm
-				  //3		      //3  1 seq Rdest, Rsrc1, Src2 Rdest = Rsrc1 == Src2
-				  //3  2 sge Rdest, Rsrc1, Src2 Rdest = Rsrc1 >= Src2
-				  //3  3 sgt Rdest, Rsrc1, Src2 Rdest = Rsrc1 > Src2
-				  //3  4 sle Rdest, Rsrc1, Src2 Rdest = Rsrc1 <= Src2
-				  //3  5 slt Rdest, Rsrc1, Src2 Rdest = Rsrc1 < Src2
-				  //3  6 sne Rdest, Rsrc1, Src2 Rdest = Rsrc1 != Src2
-				  //4		      //4  1 b label goto label
-				  //4  2 beq Rsrc1, Src2, label if (Rsrc1 == Src2) goto label
-				  //4  3 bne Rsrc1, Src2, label if (Rsrc1 != Src2) goto label
-				  //4  4 bge Rsrc1, Src2, label if (Rsrc1 >= Src2) goto label
-				  //4  5 ble Rsrc1, Src2, label if (Rsrc1 <= Src2) goto label
-				  //4  6 bgt Rsrc1, Src2, label if (Rsrc1 > Src2) goto label
-				  //4  7 blt Rsrc1, Src2, label if (Rsrc1 < Src2) goto label
-				  //4  8 beqz Rsrc, label if (Rsrc1 == 0) goto label
-				  //4  9 bnez Rsrc, label if (Rsrc1 != 0) goto label
-				  //4  10 blez Rsrc, label if (Rsrc1 <= 0) goto label
-				  //4  11 bgez Rsrc, label if (Rsrc1 >= 0) goto label
-				  //4  12 bgtz Rsrc, label if (Rsrc1 > 0) goto label
-				  //4  13 bltz Rsrc, label if (Rsrc1 < 0) goto label
-				  //4  14 j label goto label
-				  //4  15 jr Rsrc goto ???? in Rsrc
-				  //4  16 jal label $31 = ????????, goto label
-				  //4  17 jalr Rsrc $31 = ????????, goto ???? in Rsrc
-				  //5		      //5  1 la Rdest, address Rdest = address
-				  //5  2 lb Rdest, address Rdest = data[address:address + 1]
-				  //5  3 lh Rdest, address Rdest = data[address:address + 2]
-				  //5  4 lw Rdest, address Rdest = data[address:address + 4]
-				  //6		      //6  1 sb Rsrc, address data[address:address + 1] = Rsrc
-				  //6  2 sh Rsrc, address data[address:address + 2] = Rsrc
-				  //6  3 sw Rsrc, address data[address:address + 4] = Rsrc
-				  //7		      //7  1 move Rdest, Rsrc Rdest = Rsrc
-				  //7  2 mfhi Rdest Rdest = hi
-				  //7  3 mflo Rdest Rdest = lo
-				  //8		      //8  1 nop ????, ???????
-				  //8  2 syscall ??????????????????
-
-
 				  //begin with a
 		case 'a': {
-			// add Rdest, Rsrc1, Src2    Rdest = Rsrc1 + Src2
-			// addu Rdest, Rsrc1, Src2   (???)Rdest = Rsrc1 + Src2
-			// addiu Rdest, Rsrc1, Imm   (???)Rdest = Rsrc1 + Imm
-			//add $13, $12, $9
-			//add $8, $8, 1
 			switch (str[i + 3]) {
 			case ' ': A1A2A3(1, 1);break;
 			case 'u':  A1A2A3(1, 2);break;
 			case 'i': {
-				//cout << "ch1  " << ch1 << "    str[i]  " << str[i] << "str[i+3]" << str[i + 3] << endl;
 				A1A2B(1, 3);//cout << str << endl;
 				break;
 			}
@@ -853,23 +731,6 @@ int main(int argc, char *argv[]) {
 		}
 				  //begin with b
 		case 'b': {
-			//4  1 b label goto label
-
-			//4  2 beq Rsrc1, Src2, label if (Rsrc1 == Src2) goto label
-			//4  8 beqz Rsrc, label if (Rsrc1 == 0) goto label
-
-			//4  3 bne Rsrc1, Src2, label if (Rsrc1 != Src2) goto label
-			//4  9 bnez Rsrc, label if (Rsrc1 != 0) goto label
-
-			//4  4 bge Rsrc1, Src2, label if (Rsrc1 >= Src2) goto label
-			//4  6 bgt Rsrc1, Src2, label if (Rsrc1 > Src2) goto label
-			//4  11 bgez Rsrc, label if (Rsrc1 >= 0) goto label
-			//4  12 bgtz Rsrc, label if (Rsrc1 > 0) goto label
-
-			//4  5 ble Rsrc1, Src2, label if (Rsrc1 <= Src2) goto label
-			//4  7 blt Rsrc1, Src2, label if (Rsrc1 < Src2) goto label
-			//4  10 blez Rsrc, label if (Rsrc1 <= 0) goto label
-			//4  13 bltz Rsrc, label if (Rsrc1 < 0) goto label
 			if (str[i + 1] == ' ') { C(4, 1, 0);break; }
 			if (str[i + 1] == 'e'&&str[i + 3] == ' ') { A2A3C(4, 2, 0); break; }
 			if (str[i + 1] == 'e'&&str[i + 3] == 'z') { A2C(4, 8, 0); break; }
@@ -886,10 +747,6 @@ int main(int argc, char *argv[]) {
 		}
 				  //begin with d
 		case 'd': {
-			//1  10 div Rdest, Rsrc1, Src2 Rdest = Rsrc1 / Src2
-			//1  11 divu Rdest, Rsrc1, Src2(???)Rdest = Rsrc1 / Src2
-			//1  12 div Rsrc1, Rsrc2 lo = Rsrc1 / Src2, hi = Rsrc1 % Src2
-			//1  13 divu Rsrc1, Rsrc2(???)lo = Rsrc1 / Src2, hi = Rsrc1 % Src2
 			int h = strlen(str), variable = 1;
 			for (int t = 0;t < h;++t) {
 				if (str[t] == ',') variable++;
@@ -905,25 +762,13 @@ int main(int argc, char *argv[]) {
 		}
 				  //begin with j
 		case 'j': {
-			//4  14 j label goto label
-			//4  15 jr Rsrc goto ???? in Rsrc
-			//4  16 jal label $31 = ????????, goto label
-			//4  17 jalr Rsrc $31 = ????????, goto ???? in Rsrc
-			if (str[i + 1] == ' ') { C(4, 14, 0);break; }
+		    if (str[i + 1] == ' ') { C(4, 14, 0);break; }
 			if (str[i + 1] == 'r') { A2(4, 15);break; }
 			if (str[i + 1] == 'a'&&str[i + 3] == ' ') { C(4, 16, 0);break; }
 			if (str[i + 1] == 'a'&&str[i + 3] == 'r') { A2(4, 17);break; }
 		}
 				  //begin with l
 		case 'l': {
-			//5  1 la Rdest, address Rdest = address
-			//5  2 lb Rdest, address Rdest = data[address:address + 1]
-			//5  3 lh Rdest, address Rdest = data[address:address + 2]
-			//5  4 lw Rdest, address Rdest = data[address:address + 4]
-			//2  1 li Rdest, imm Rdest = imm
-			// la $8, _static_0
-			//lw $10, _static_1
-			//lw $11, -4($fp)
 			if (str[i + 1] == 'a') { A1D(5, 1); break; }
 			if (str[i + 1] == 'b') { A1D(5, 2); break; }
 			if (str[i + 1] == 'h') { A1D(5, 3);break; }
@@ -932,13 +777,6 @@ int main(int argc, char *argv[]) {
 		}
 				  //begin with m
 		case 'm': {
-			//1  6 mul Rdest, Rsrc1, Src2 Rdest = Rsrc1 * Src2
-			//1  7 mulu Rdest, Rsrc1, Src2(???)Rdest = Rsrc1 * Src2
-			//1  8 mul Rdest, Src2 ??, ? 32 ??? lo, ? 32 ??? hi
-			//1  9 mulu Rdest, Src2(???) ??, ? 32 ??? lo, ? 32 ??? hi
-			//7  1 move Rdest, Rsrc Rdest = Rsrc
-			//7  2 mfhi Rdest Rdest = hi
-			//7  3 mflo Rdest Rdest = lo
 			if (str[i + 1] == 'u') {
 				int h = strlen(str), variable = 1;
 				for (int t = 0;t < h;++t) { if (str[t] == ',') variable++; }
@@ -958,34 +796,17 @@ int main(int argc, char *argv[]) {
 		}
 				  //begin with n
 		case 'n': {
-			//1  16 neg Rdest, Rsrc Rdest = Rsrc ??
-			//1  17 negu Rdest, Rsrc(???)Rdest = Rsrc ??
-			//8  1 nop ????, ???????
 			if (str[i + 1] == 'e'&&str[i + 3] == ' ') { A1A2(1, 16);break; }
 			if (str[i + 1] == 'e'&&str[i + 3] == 'u') { A1A2(1, 17);break; }
 			if (str[i + 1] == 'o') { NOP(8, 1);break; }
 		}
 				  //begin with r
 		case 'r': {
-			//1  18 rem Rdest, Rsrc1, Src2 Rdest = Rsrc1 % Src2
-			//1  19 remu Rdest, Rsrc1, Src2(???)Rdest = Rsrc1 % Src2
 			if (str[i + 3] == ' ') { A1A2A3(1, 18);break; }
 			if (str[i + 3] == 'u') { A1A2A3(1, 19);break; }
 		}
 				  //begin with s
 		case 's': {
-			//1  4 sub Rdest, Rsrc1, Src2 Rdest = Rsrc1 - Src2
-			//1  5 subu Rdest, Rsrc1, Src2(???)Rdest = Rsrc1 - Src2
-			//3  1 seq Rdest, Rsrc1, Src2 Rdest = Rsrc1 == Src2
-			//3  2 sge Rdest, Rsrc1, Src2 Rdest = Rsrc1 >= Src2
-			//3  3 sgt Rdest, Rsrc1, Src2 Rdest = Rsrc1 > Src2
-			//3  4 sle Rdest, Rsrc1, Src2 Rdest = Rsrc1 <= Src2
-			//3  5 slt Rdest, Rsrc1, Src2 Rdest = Rsrc1 < Src2
-			//3  6 sne Rdest, Rsrc1, Src2 Rdest = Rsrc1 != Src2
-			//6  1 sb Rsrc, address data[address:address + 1] = Rsrc
-			//6  2 sh Rsrc, address data[address:address + 2] = Rsrc
-			//6  3 sw Rsrc, address data[address:address + 4] = Rsrc
-			//8  2 syscall ??????????????????
 			if (str[i + 1] == 'u'&&str[i + 3] == ' ') { A1A2A3(1, 4); break; }
 			if (str[i + 1] == 'u'&&str[i + 3] == 'u') { A1A2A3(1, 5);break; }
 			if (str[i + 1] == 'e') { A1A2A3(3, 1);break; }
@@ -1001,87 +822,25 @@ int main(int argc, char *argv[]) {
 		}
 				  //begin with x
 		case 'x': {
-			//1  14 xor Rdest, Rsrc1, Src2 Rdest = Rsrc1 Src2
-			//1  15 xoru Rdest, Rsrc1, Src2(???)Rdest = Rsrc1 Src2
 			if (str[i + 3] == ' ') { A1A2A3(1, 14);break; }
 			if (str[i + 3] == 'u') { A1A2A3(1, 15);break; }
 		}
 		}
 	}
 	current = 0;
-	//for (auto it = stackmap.begin(); it != stackmap.end(); ++it)
-	//{
-	//	int x = it->second;
-	//   cout << it->first << "=" << it->second <<endl;
-	//	cout << stack[it->second] << endl;
-	//}
-	for (auto it = instructmap.begin(); it != instructmap.end(); ++it)
-	{
-		int x = it->second;
-		//cout << it->first << "=" << it->second << endl;
-		for (i = 0;i < 5;++i) { lookat(text[x + i].type, text[x + i].num); }
-
-	}
-	/*cout << instructmap["_buffer_init"] << endl;
-	cout << instructmap["_func_____built_in_string_less"] << endl;
-	cout << instructmap["_end_if_0"] << endl;
-	cout << instructmap["_begin_loop_0"] << endl;
-	cout << instructmap["_end_if_1"] << endl;
-	cout << instructmap["_continue_loop0"] << endl;
-	cout << instructmap["_end_loop_0"] << endl;
-	cout << instructmap["_end_func_____built_in_string_less"] << endl;
-	cout << instructmap["_func_____built_in_string_equal"] << endl;*/
-	//string x = "_func_main";
-	//cout << instructmap[x] << endl;
-
-
-
-
-
-
-
-	int clock = 0;
-
-	//used in Step 1
-	bool canFetch = true;
-
-	//deliver to Step 2
-	instruct tmp;
-	bool canDecode = false;
-
-	//deliver to Step 3
-	int f1 = -1, f2, f3, x1, x2 = -1, x3 = -1, RdestLoca = -1, Rsrc, Src2;
-	string x4;
-	bool caculate = false;
-
-	//deliver to Step 4
-	//in
-	int x4ad = -1, x2Stack = -1, f1Step4 = -1, f2Step4 = -1, v0Value;
-	//out
-	int ans1 = -1, former1 = -1, latter1 = -1, x3Step4 = -1, flag = -1, jumpto = -1, RdestLocaStep4 = -1, pos31 = -1;
-	unsigned int ans2 = -1, former2 = -1, latter2 = -1;
-	bool whether = 0;
-	bool beginStep4 = false;
-
-	//deliver to Step 5
-	int ans1Write, former1Write, latter1Write, x3Write, flagWrite, transchar, jumptoStep5, RdestLocaStep5, x2Write, pos31Step5, v0ValueStep5;
-	int f1Step5 = -1, f2Step5 = -1;
-	unsigned int ans2Write, former2Write, latter2Write;
-	bool whetherWrite = 0;
-	bool beginStep5 = false;
-	current = instructmap["main"];
-	current--;
-	bool canChange[34];
-	int size = text.size();
+	currentdeal = instructmap["main"];
+	currentdeal--;
+	counter[0] = 1;counter[1] = 1;
 	for (int l = 0;l < 34;++l) canChange[l] = true;
-	bool ifcurrent = true;
-	int jumptimedata = -1, jumptimestruc = -1;
-	while (current != text.size()) {
-		clock++;
+	for (int r = 0;r < 4;++r) foresee[r] = 0;
+	while (currentdeal != text.size()) {
+		Clock++;
+		//for (int e = 0;e < 32;e++) of << regis[e] << " ";
+		//of << endl;
+		//of << currentdeal << endl;
 		//of << "one clock over------------------------------------------------------------------" << endl;
 		//Write Back
 		if (beginStep5) {
-			//cout << "step 5 ------ f1  " << f1Step5 << ";  f2  " << f2Step5 << endl;
 			//of << "step 5 ------ f1  " << f1Step5 << ";  f2  " << f2Step5 << endl;
 			unsigned int trans;
 			switch (f1Step5) {
@@ -1140,7 +899,7 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 			case 4: {
-				if (canChange[31] == false)
+				if (canChange[31] == false && (f2Step5 == 16 || f2Step5 == 17))
 				{
 					regis[31] = pos31Step5;
 					canChange[31] = true;
@@ -1184,15 +943,13 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			}
-			if (whetherWrite) { current = jumptoStep5;canFetch = true; whetherWrite = false;ifcurrent = false; }
-			//else current++;
+			if (whetherWrite) { currentdeal = jumptoStep5;canFetch = true; whetherWrite = false;ifcurrent = false; }
 			beginStep5 = false;
 		}
 
 		//Memory Access        
 		if (beginStep4) {
 			int f = (1 << 8) - 1;
-			//cout << "step 4 ------ f1  " << f1Step4 << ";  f2  " << f2Step4 << endl;
 			//of << "step 4 ------ f1  " << f1Step4 << ";  f2  " << f2Step4 << endl;
 			if (f1Step4 == 5) {
 				int t1 = (int)stack[x4ad], t2 = (int)stack[x4ad + 1], t3 = (int)stack[x4ad + 2], t4 = (int)stack[x4ad + 3];
@@ -1216,7 +973,6 @@ int main(int argc, char *argv[]) {
 
 		//Execution
 		if (caculate) {
-			//cout << "step 3 ------ f1  " << f1 << ";  f2  " << f2 << endl;
 			//of << "step 3 ------ f1  " << f1 << ";  f2  " << f2 << endl;
 			switch (f1) {
 			case 1: {
@@ -1286,6 +1042,7 @@ int main(int argc, char *argv[]) {
 						canChange[31] = false;
 					}
 				}
+
 				break;
 			}
 			case 5: {
@@ -1327,14 +1084,28 @@ int main(int argc, char *argv[]) {
 					canChange[2] = false;
 					stacktop += regis[4];break;
 				}
-				case 10: {return 0;}
-				case 17: {return regis[4];break;}
+				case 10: {
+					//system("pause");
+					return 0;
+				}
+				case 17: {
+					//system("pause");
+					return regis[4];break;
+				}
 				}
 				break;
 			}
 			}
 			x2Stack = x2;x3Step4 = x3;RdestLocaStep4 = RdestLoca;f1Step4 = f1;f2Step4 = f2;
 			caculate = false;beginStep4 = true;
+			if (f1 == 4) {
+				if (whether == 1 && prediction == 1 && jumpto < (text.size() - 3)) {
+					simulate(jumpto);whether = false;ifcurrent = false;jumptimestruc = 0;continue;
+				}
+				if (whether == 0 && prediction == 0 && currentdeal < (text.size() - 3)) {
+					simulate(currentdeal + 1);ifcurrent = false;jumptimestruc = 0;continue;
+				}
+			}
 		}
 		if (jumptimedata > 0) {
 			jumptimedata--;
@@ -1343,22 +1114,18 @@ int main(int argc, char *argv[]) {
 		//Instruction Decode & Data Preparation
 		if (canDecode) {
 
-			f1 = tmp.type;
-			f2 = tmp.num;
-			f3 = tmp.judge;
-			//if (f1 == 7 && f2 == 1) {
-			//	cout << "stop here" << endl;
-			//}
-			if (tmp.Rdest >= 0 && tmp.Rdest < 32) x1 = regis[tmp.Rdest];
-			x4 = tmp.label;
-			RdestLoca = tmp.Rdest;
-			Rsrc = tmp.Rsrc;
-			Src2 = tmp.Src2;
-			//cout << "step 2 ------ f1  " << f1 << ";  f2  " << f2 << endl;
+			f1 = tmpinstruct.type;
+			f2 = tmpinstruct.num;
+			f3 = tmpinstruct.judge;
+			if (tmpinstruct.Rdest >= 0 && tmpinstruct.Rdest < 32) x1 = regis[tmpinstruct.Rdest];
+			x4 = tmpinstruct.label;
+			RdestLoca = tmpinstruct.Rdest;
+			Rsrc = tmpinstruct.Rsrc;
+			Src2 = tmpinstruct.Src2;
 			//of << "step 2 ------ f1  " << f1 << ";  f2  " << f2 << endl;
+			//of << "canChange  " << canChange[31] << endl;
 			if (f1 == 8 && f2 == 2) {
 				if (canChange[4] == false || canChange[5] == false || canChange[2] == false) {
-					//cout << "data hazard ------ f1  " << f1 << ";  f2  " << f2 << endl;
 					//of << "data hazard ------ f1  " << f1 << ";  f2  " << f2 << endl;
 					jumptimedata = 2;
 					continue;
@@ -1386,42 +1153,34 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			if ((f1 == 1 && f2 == 8) || (f1 == 1 && f2 == 9)) {
-				if (f3 == true) x2 = tmp.Rsrc;
+				if (f3 == true) x2 = tmpinstruct.Rsrc;
 				x3 = -1;
 			}
 			else {
-				if (tmp.Rsrc >= 0 && tmp.Rsrc < 32) x2 = regis[tmp.Rsrc];
-				if (f3 == true) x3 = tmp.Src2;
-				else { if (tmp.Src2 >= 0 && tmp.Src2 < 32) x3 = regis[tmp.Src2]; }
+				if (tmpinstruct.Rsrc >= 0 && tmpinstruct.Rsrc < 32) x2 = regis[tmpinstruct.Rsrc];
+				if (f3 == true) x3 = tmpinstruct.Src2;
+				else { if (tmpinstruct.Src2 >= 0 && tmpinstruct.Src2 < 32) x3 = regis[tmpinstruct.Src2]; }
 			}
 			canDecode = false;caculate = true;
-			//if (RdestLoca == 2 && x2 == 0&&regis[2]== 4) {
-			//	cout << "stop here" << endl;
-			//}
 		}
 		//Instruction Fetch
 		if (jumptimestruc > 0) {
 			jumptimestruc--;
 			continue;
 		}
-		//if (canFetch) {
-		//cout << "clock------" << clock << "          current-------" << current << endl;
 		if (ifcurrent) {
-			current++;
-			//of << " ifcurrent     " << ifcurrent << "      current    " << current << endl; 
+			currentdeal++;
 		}
 		else ifcurrent = true;
-		tmp = text[current];
-		//cout << "step 1 ------ f1  " << tmp.type << ";  f2  " << tmp.num << endl;
-		//of << "step 1 ------ f1  " << tmp.type << ";  f2  " << tmp.num << endl;
+		tmpinstruct = text[currentdeal];
+		//of << "step 1 ------ f1  " << tmpinstruct.type << ";  f2  " << tmpinstruct.num << endl;
 		canDecode = true;
-		if (tmp.type == 4) {
+		if (tmpinstruct.type == 4) {
 			//of << "construction hazard ------ f1  " << f1 << ";  f2  " << f2 << endl;
 			jumptimestruc = 4;
+			if (foresee[(counter[0] << 1) | counter[1]] <= 1) prediction = true;
+			else prediction = false;
 		}
-		//}
-		//for (int w = 0;w < 32;++w) of << regis[w] << " ";
-		//of << endl;
 	}
 	//system("pause");
 	return 0;
